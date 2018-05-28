@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["add_fn_to_module","Generates python wrapper over a function that allows adding it to a python module as a python function"],["process_functions_in_module","Finds and takes care of the #[pyfn(...)] in #[modinit(...)]"],["py2_init",""],["py3_init","Generates the function that is called by the python interpreter to initialize the native module"]]});
