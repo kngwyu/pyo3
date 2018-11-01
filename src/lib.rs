@@ -215,3 +215,13 @@ macro_rules! wrap_function {
         }
     }};
 }
+
+#[cfg(Py_3)]
+pub const fn is_python2() -> bool {
+    false
+}
+
+#[cfg(not(Py_3))]
+pub const fn is_python2() -> bool {
+    true
+}
