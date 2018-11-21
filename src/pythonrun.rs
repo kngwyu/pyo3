@@ -275,7 +275,7 @@ mod array_list {
     /// A container type for Release Pool
     /// See #271 for why this is crated
     pub(super) struct ArrayList<T> {
-        inner: LinkedList<[T; BLOCK_SIZE]>,
+        inner: LinkedList<Vec<T>>,
         length: usize,
     }
 
@@ -289,9 +289,9 @@ mod array_list {
         pub fn push_back(&mut self, item: T) -> &T {
             let next_idx = self.next_idx();
             if next_idx == 0 {
-                self.inner.push_back(unsafe { mem::uninitialized() });
+                self.inner.push_back(Vec::with_capacity(BLOCK_SIZE));
             }
-            self.inner.back_mut().unwrap()[next_idx] = item;
+            self.inner.back_mut().unwrap().push(item);
             self.length += 1;
             &self.inner.back().unwrap()[next_idx]
         }
@@ -300,7 +300,7 @@ mod array_list {
             let current_idx = self.next_idx();
             if self.length >= BLOCK_SIZE && current_idx == 0 {
                 let last_list = self.inner.pop_back()?;
-                return Some(last_list[0].clone());
+                return last_list.into_iter().next();
             }
             self.inner.back().map(|arr| arr[current_idx].clone())
         }
