@@ -4,7 +4,7 @@ use crate::err::{PyDowncastError, PyErr, PyResult};
 use crate::ffi;
 use crate::gil;
 use crate::instance::{AsPyRef, PyNativeType, PyRef, PyRefMut};
-use crate::types::{PyDict, PyObjectRef, PyTuple};
+use crate::types::{PyBaseObject, PyDict, PyTuple};
 use crate::AsPyPointer;
 use crate::Py;
 use crate::Python;
@@ -12,6 +12,11 @@ use crate::{
     FromPyObject, IntoPy, IntoPyObject, IntoPyPointer, PyTryFrom, ToBorrowedObject, ToPyObject,
 };
 use std::ptr::NonNull;
+
+#[repr(transparent)]
+pub struct PyBaseObject_(NonNull<ffi::PyObject>);
+
+impl PyNativeType for PyBaseObject {}
 
 /// A python object
 ///
@@ -254,14 +259,14 @@ impl PyObject {
     }
 }
 
-impl AsPyRef<PyObjectRef> for PyObject {
+impl AsPyRef<PyBaseObject> for PyObject {
     #[inline]
-    fn as_ref(&self, _py: Python) -> PyRef<PyObjectRef> {
-        unsafe { PyRef::from_ref(&*(self as *const _ as *const PyObjectRef)) }
+    fn as_ref(&self, _py: Python) -> PyRef<PyBaseObject> {
+        unsafe { PyRef::from_ref(&*(self as *const _ as *const PyBaseObject)) }
     }
     #[inline]
-    fn as_mut(&mut self, _py: Python) -> PyRefMut<PyObjectRef> {
-        unsafe { PyRefMut::from_mut(&mut *(self as *mut _ as *mut PyObjectRef)) }
+    fn as_mut(&mut self, _py: Python) -> PyRefMut<PyBaseObject> {
+        unsafe { PyRefMut::from_mut(&mut *(self as *mut _ as *mut PyBaseObject)) }
     }
 }
 
@@ -309,7 +314,7 @@ impl IntoPyObject for PyObject {
 impl<'a> FromPyObject<'a> for PyObject {
     #[inline]
     /// Extracts `Self` from the source `PyObject`.
-    fn extract(ob: &'a PyObjectRef) -> PyResult<Self> {
+    fn extract(ob: &'a PyBaseObject) -> PyResult<Self> {
         unsafe { Ok(PyObject::from_borrowed_ptr(ob.py(), ob.as_ptr())) }
     }
 }

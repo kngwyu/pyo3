@@ -2,13 +2,13 @@
 
 use pyo3::ffi::*;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyObjectRef};
+use pyo3::types::{PyBaseObject, PyDict};
 
 fn _get_subclasses<'p>(
     py: &'p Python,
     py_type: &str,
     args: &str,
-) -> PyResult<(&'p PyObjectRef, &'p PyObjectRef, &'p PyObjectRef)> {
+) -> PyResult<(&'p PyBaseObject, &'p PyBaseObject, &'p PyBaseObject)> {
     // Import the class from Python and create some subclasses
     let datetime = py.import("datetime")?;
 

@@ -5,7 +5,7 @@ use crate::exceptions;
 use crate::ffi;
 use crate::instance::{Py, PyNativeType};
 use crate::object::PyObject;
-use crate::types::PyObjectRef;
+use crate::types::PyBaseObject;
 use crate::AsPyPointer;
 use crate::Python;
 use std::borrow::Cow;
@@ -35,7 +35,7 @@ impl PyString {
     }
 
     pub fn from_object<'p>(
-        src: &'p PyObjectRef,
+        src: &'p PyBaseObject,
         encoding: &str,
         errors: &str,
     ) -> PyResult<&'p PyString> {
