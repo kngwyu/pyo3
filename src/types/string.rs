@@ -2,7 +2,7 @@
 
 use crate::conversion::FromPyObject;
 use crate::conversion::{IntoPyObject, PyTryFrom, ToPyObject};
-use crate::err::{self, PyErr, PyResult};
+use crate::err::{PyErr, PyResult};
 use crate::exceptions;
 use crate::ffi;
 use crate::instance::PyNativeType;
@@ -54,18 +54,18 @@ impl PyString {
 
     /// Get the Python string as a byte slice.
     ///
-    /// Panics if out of memory.
+    /// Returns `Err` if the internal unicode object contains surrogates such as "\ud800".
     #[inline]
-    pub fn as_bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> PyResult<&[u8]> {
         unsafe {
             let mut size: ffi::Py_ssize_t = mem::uninitialized();
+            // Since Python unicode can contain surrogates such as "\ud800",
+            // PyUnicode_AsUTF8AndSize can fail
             let data = ffi::PyUnicode_AsUTF8AndSize(self.0.as_ptr(), &mut size) as *const u8;
-            // PyUnicode_AsUTF8AndSize returns null in case of error, but because we have a valid
-            // PyString, only an out-of-memory error is possible.
             if data.is_null() {
-                err::panic_after_error();
+                return Err(PyErr::fetch(self.py()));
             }
-            std::slice::from_raw_parts(data, size as usize)
+            Ok(std::slice::from_raw_parts(data, size as usize))
         }
     }
 
@@ -74,10 +74,10 @@ impl PyString {
     /// Returns a `UnicodeDecodeError` if the input is not valid unicode
     /// (containing unpaired surrogates).
     pub fn to_string(&self) -> PyResult<Cow<str>> {
-        match std::str::from_utf8(self.as_bytes()) {
+        match std::str::from_utf8(self.as_bytes()?) {
             Ok(s) => Ok(Cow::Borrowed(s)),
             Err(e) => Err(PyErr::from_instance(
-                exceptions::UnicodeDecodeError::new_utf8(self.py(), self.as_bytes(), e)?,
+                exceptions::UnicodeDecodeError::new_utf8(self.py(), self.as_bytes()?, e)?,
             )),
         }
     }
@@ -87,7 +87,7 @@ impl PyString {
     /// Unpaired surrogates invalid UTF-8 sequences are
     /// replaced with U+FFFD REPLACEMENT CHARACTER.
     pub fn to_string_lossy(&self) -> Cow<str> {
-        String::from_utf8_lossy(self.as_bytes())
+        String::from_utf8_lossy(self.as_bytes().unwrap())
     }
 }
 
@@ -241,7 +241,7 @@ mod test {
         let s = "ascii 🐈";
         let obj: PyObject = PyString::new(py, s).into();
         let py_string = <PyString as PyTryFrom>::try_from(obj.as_ref(py)).unwrap();
-        assert_eq!(s.as_bytes(), py_string.as_bytes());
+        assert_eq!(s.as_bytes(), py_string.as_bytes().unwrap());
     }
 
     #[test]
