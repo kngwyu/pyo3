@@ -252,3 +252,11 @@ fn test_vararg_module() {
     py_assert!(py, m, "m.int_vararg_fn() == [5, ()]");
     py_assert!(py, m, "m.int_vararg_fn(1, 2) == [1, (2,)]");
 }
+
+/// This module is implemented in Rust.
+#[pymodule]
+fn module_with_add_class(py: Python, m: &PyModule) -> PyResult<()> {
+    #[pyo3(add_function)]
+    pub use ext_vararg_fn;
+    Ok(())
+}

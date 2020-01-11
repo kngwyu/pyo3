@@ -27,27 +27,37 @@ pub fn py_init(fnname: &Ident, name: &Ident, doc: syn::LitStr) -> TokenStream {
     }
 }
 
+pub fn get_mod_ident(func: &syn::ItemFn) -> Option<syn::Ident> {
+    if let Some(syn::FnArg::Typed(m)) = func.sig.inputs.iter().nth(1) {
+        if let syn::Pat::Ident(m) = &*m.pat {
+            Some(m.ident.clone())
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 /// Finds and takes care of the #[pyfn(...)] in `#[pymodule]`
 pub fn process_functions_in_module(func: &mut syn::ItemFn) {
     let mut stmts: Vec<syn::Stmt> = Vec::new();
 
-    for stmt in func.block.stmts.iter_mut() {
+    for mut stmt in func.block.stmts.drain(..) {
         if let syn::Stmt::Item(syn::Item::Fn(ref mut func)) = stmt {
             if let Some((module_name, python_name, pyfn_attrs)) =
                 extract_pyfn_attrs(&mut func.attrs)
             {
                 let function_to_python = add_fn_to_module(func, python_name, pyfn_attrs);
                 let function_wrapper_ident = function_wrapper_ident(&func.sig.ident);
-                let item: syn::ItemFn = syn::parse_quote! {
-                    fn block_wrapper() {
-                        #function_to_python
-                        #module_name.add_wrapped(&#function_wrapper_ident)?;
-                    }
+                let pyfn_add: syn::Stmt = syn::parse_quote! {
+                    #module_name.add_wrapped(&#function_wrapper_ident)?;
                 };
-                stmts.extend(item.block.stmts.into_iter());
+                stmts.push(syn::parse_quote! { #function_to_python  });
+                stmts.push(pyfn_add);
             }
         };
-        stmts.push(stmt.clone());
+        stmts.push(stmt);
     }
 
     func.block.stmts = stmts;
@@ -87,7 +97,7 @@ fn extract_pyfn_attrs(
     let mut modname = None;
     let mut fn_attrs = Vec::new();
 
-    for attr in attrs.iter() {
+    for attr in attrs.drain(..) {
         match attr.parse_meta() {
             Ok(syn::Meta::List(ref list)) if list.path.is_ident("pyfn") => {
                 let meta: Vec<_> = list.nested.iter().cloned().collect();
@@ -116,7 +126,7 @@ fn extract_pyfn_attrs(
                     panic!("can not parse 'pyfn' params {:?}", attr);
                 }
             }
-            _ => new_attrs.push(attr.clone()),
+            _ => new_attrs.push(attr),
         }
     }
 
@@ -125,7 +135,7 @@ fn extract_pyfn_attrs(
 }
 
 /// Coordinates the naming of a the add-function-to-python-module function
-fn function_wrapper_ident(name: &Ident) -> Ident {
+pub(crate) fn function_wrapper_ident(name: &Ident) -> Ident {
     // Make sure this ident matches the one of wrap_pyfunction
     format_ident!("__pyo3_get_function_{}", name)
 }

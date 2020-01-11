@@ -3,6 +3,7 @@
 
 #![recursion_limit = "1024"]
 
+mod add_item;
 mod defs;
 mod func;
 mod method;
@@ -14,7 +15,8 @@ mod pymethod;
 mod pyproto;
 mod utils;
 
-pub use module::{add_fn_to_module, process_functions_in_module, py_init};
+pub use add_item::process_pyo3_add;
+pub use module::{add_fn_to_module, get_mod_ident, process_functions_in_module, py_init};
 pub use pyclass::{build_py_class, PyClassArgs};
 pub use pyfunction::{build_py_function, PyFunctionAttr};
 pub use pyimpl::{build_py_methods, impl_methods};

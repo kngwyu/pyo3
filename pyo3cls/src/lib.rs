@@ -4,10 +4,7 @@
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use pyo3_derive_backend::{
-    build_py_class, build_py_function, build_py_methods, build_py_proto, get_doc,
-    process_functions_in_module, py_init, PyClassArgs, PyFunctionAttr,
-};
+use pyo3_derive_backend::*;
 use quote::quote;
 use syn::parse_macro_input;
 
@@ -17,6 +14,8 @@ use syn::parse_macro_input;
 pub fn pymodule(attr: TokenStream, input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as syn::ItemFn);
 
+    let mod_ident = get_mod_ident(&ast);
+
     let modname = if attr.is_empty() {
         ast.sig.ident.clone()
     } else {
@@ -24,6 +23,9 @@ pub fn pymodule(attr: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     process_functions_in_module(&mut ast);
+    if let Err(err) = process_pyo3_add(&mod_ident, &mut ast) {
+        return err.to_compile_error().into();
+    }
 
     let doc = match get_doc(&ast.attrs, None, false) {
         Ok(doc) => doc,
