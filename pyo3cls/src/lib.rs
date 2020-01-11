@@ -4,10 +4,7 @@
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
-use pyo3_derive_backend::{
-    build_py_class, build_py_function, build_py_methods, build_py_proto, get_doc,
-    process_functions_in_module, py_init, PyClassArgs, PyFunctionAttr,
-};
+use pyo3_derive_backend::*;
 use quote::quote;
 use syn::parse_macro_input;
 
@@ -15,28 +12,57 @@ use syn::parse_macro_input;
 /// that then calls the init function you provided
 #[proc_macro_attribute]
 pub fn pymodule(attr: TokenStream, input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as syn::ItemFn);
+    fn pymodule_for_fn(attr: TokenStream, mut func: syn::ItemFn) -> TokenStream {
+        let modname = if attr.is_empty() {
+            func.sig.ident.clone()
+        } else {
+            parse_macro_input!(attr as syn::Ident)
+        };
 
-    let modname = if attr.is_empty() {
-        ast.sig.ident.clone()
-    } else {
-        parse_macro_input!(attr as syn::Ident)
-    };
+        process_functions_in_module(&mut func);
 
-    process_functions_in_module(&mut ast);
+        let doc = match get_doc(&func.attrs, None, false) {
+            Ok(doc) => doc,
+            Err(err) => return err.to_compile_error().into(),
+        };
 
-    let doc = match get_doc(&ast.attrs, None, false) {
-        Ok(doc) => doc,
-        Err(err) => return err.to_compile_error().into(),
-    };
+        let expanded = py_init(&func.sig.ident, &modname, doc);
 
-    let expanded = py_init(&ast.sig.ident, &modname, doc);
+        quote!(
+            #func
+            #expanded
+        )
+        .into()
+    }
 
-    quote!(
-        #ast
-        #expanded
-    )
-    .into()
+    fn pymodule_for_mod(attr: TokenStream, mod_: syn::ItemMod) -> TokenStream {
+        let modname = if attr.is_empty() {
+            mod_.ident.clone()
+        } else {
+            parse_macro_input!(attr as syn::Ident)
+        };
+
+        let doc = match get_doc(&mod_.attrs, None, false) {
+            Ok(doc) => doc,
+            Err(err) => return err.to_compile_error().into(),
+        };
+
+        let expanded = py_init(&mod_.ident, &modname, doc);
+
+        quote!(
+            #mod_
+            #expanded
+        )
+        .into()
+    }
+
+    match syn::parse_macro_input::parse::<syn::ItemFn>(input.clone()) {
+        Ok(data) => pymodule_for_fn(attr, data),
+        Err(_) => match syn::parse_macro_input::parse::<syn::ItemMod>(input) {
+            Ok(data) => pymodule_for_mod(attr, data),
+            Err(err) => TokenStream::from(err.to_compile_error()),
+        },
+    }
 }
 
 #[proc_macro_attribute]
