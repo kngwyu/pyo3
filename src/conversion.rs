@@ -6,7 +6,7 @@ use crate::object::PyObject;
 use crate::type_object::{PyObjectLayout, PyTypeInfo};
 use crate::types::PyAny;
 use crate::types::PyTuple;
-use crate::{ffi, gil, Py, Python};
+use crate::{ffi, gil, Py, PyNativeType, Python};
 use std::ptr::NonNull;
 
 /// This trait represents that, **we can do zero-cost conversion from the object to FFI pointer**.
@@ -244,25 +244,77 @@ where
     }
 }
 
-/// Extract reference to instance from `PyObject`
-impl<'a, T> FromPyObject<'a> for &'a T
-where
-    T: PyTryFrom<'a>,
-{
-    #[inline]
-    fn extract(ob: &'a PyAny) -> PyResult<&'a T> {
-        Ok(T::try_from(ob)?)
+pub mod extract_impl {
+    use super::*;
+
+    pub trait ExtractImpl<'a, Target>: Sized {
+        fn extract(source: &'a PyAny, py: Python<'a>) -> PyResult<Target>;
+    }
+
+    pub struct Cloned;
+    pub struct Reference;
+    pub struct MutReference;
+
+    impl<'a, T: 'a> ExtractImpl<'a, T> for Cloned
+    where
+        T: Clone,
+        Reference: ExtractImpl<'a, &'a T>,
+    {
+        fn extract(source: &'a PyAny, py: Python<'a>) -> PyResult<T> {
+            Ok(Reference::extract(source, py)?.clone())
+        }
+    }
+
+    impl<'a, T> ExtractImpl<'a, &'a T> for Reference
+    where
+        T: PyTryFrom<'a>,
+    {
+        fn extract(source: &'a PyAny, _: Python<'a>) -> PyResult<&'a T> {
+            Ok(T::try_from(source)?)
+        }
+    }
+
+    impl<'a, T> ExtractImpl<'a, &'a mut T> for MutReference
+    where
+        T: PyTryFrom<'a>,
+    {
+        fn extract(source: &'a PyAny, _: Python<'a>) -> PyResult<&'a mut T> {
+            Ok(T::try_from_mut(source)?)
+        }
     }
 }
 
-/// Extract mutable reference to instance from `PyObject`
-impl<'a, T> FromPyObject<'a> for &'a mut T
+use extract_impl::ExtractImpl;
+
+/// Implement this trait with to specify the implementor of ExtractImpl to use for extracting
+/// this type from Python objects.
+///
+/// Example valid implementations are `Cloned`, `Reference`, and `MutReference`, which are for
+/// extracting `T`, `&T` and `&mut T` respectively via PyTryFrom
+///
+/// This is an internal trait mostly for re-using FromPyObject implementations for many pyo3
+/// types.
+///
+/// Most users should implement `FromPyObject` directly instead of via this trait..
+pub trait FromPyObjectImpl {
+    // We deliberately don't require Policy: ExtractImpl here because we allow #[pyclass]
+    // to specify Policies when they don't satisfy the ExtractImpl constraints.
+    //
+    // e.g. non-clone #[pyclass] can still have Policy: Cloned.
+    //
+    // We catch invalid policies in the blanket impl for FromPyObject, which only
+    // complains when .extract() is actually used.
+    type Impl;
+}
+
+impl<'a, T> FromPyObject<'a> for T
 where
-    T: PyTryFrom<'a>,
+    T: FromPyObjectImpl,
+    <T as FromPyObjectImpl>::Impl: ExtractImpl<'a, Self>,
 {
     #[inline]
-    fn extract(ob: &'a PyAny) -> PyResult<&'a mut T> {
-        Ok(T::try_from_mut(ob)?)
+    fn extract(ob: &'a PyAny) -> PyResult<T> {
+        <T as FromPyObjectImpl>::Impl::extract(ob, ob.py())
     }
 }
 
