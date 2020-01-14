@@ -6,7 +6,7 @@ use crate::object::PyObject;
 use crate::type_object::{PyObjectLayout, PyTypeInfo};
 use crate::types::PyAny;
 use crate::types::PyTuple;
-use crate::{ffi, gil, Py, PyNativeType, Python};
+use crate::{ffi, gil, Py, Python};
 use std::ptr::NonNull;
 
 /// This trait represents that, **we can do zero-cost conversion from the object to FFI pointer**.
@@ -248,7 +248,7 @@ pub mod extract_impl {
     use super::*;
 
     pub trait ExtractImpl<'a, Target>: Sized {
-        fn extract(source: &'a PyAny, py: Python<'a>) -> PyResult<Target>;
+        fn extract(source: &'a PyAny) -> PyResult<Target>;
     }
 
     pub struct Cloned;
@@ -260,8 +260,8 @@ pub mod extract_impl {
         T: Clone,
         Reference: ExtractImpl<'a, &'a T>,
     {
-        fn extract(source: &'a PyAny, py: Python<'a>) -> PyResult<T> {
-            Ok(Reference::extract(source, py)?.clone())
+        fn extract(source: &'a PyAny) -> PyResult<T> {
+            Ok(Reference::extract(source)?.clone())
         }
     }
 
@@ -269,7 +269,7 @@ pub mod extract_impl {
     where
         T: PyTryFrom<'a>,
     {
-        fn extract(source: &'a PyAny, _: Python<'a>) -> PyResult<&'a T> {
+        fn extract(source: &'a PyAny) -> PyResult<&'a T> {
             Ok(T::try_from(source)?)
         }
     }
@@ -278,7 +278,7 @@ pub mod extract_impl {
     where
         T: PyTryFrom<'a>,
     {
-        fn extract(source: &'a PyAny, _: Python<'a>) -> PyResult<&'a mut T> {
+        fn extract(source: &'a PyAny) -> PyResult<&'a mut T> {
             Ok(T::try_from_mut(source)?)
         }
     }
@@ -297,12 +297,12 @@ use extract_impl::ExtractImpl;
 ///
 /// Most users should implement `FromPyObject` directly instead of via this trait..
 pub trait FromPyObjectImpl {
-    // We deliberately don't require Policy: ExtractImpl here because we allow #[pyclass]
-    // to specify Policies when they don't satisfy the ExtractImpl constraints.
+    // We deliberately don't require Impl: ExtractImpl here because we allow #[pyclass]
+    // to specify an Impl which doesn't satisfy the ExtractImpl constraints.
     //
-    // e.g. non-clone #[pyclass] can still have Policy: Cloned.
+    // e.g. non-clone #[pyclass] can still have Impl: Cloned.
     //
-    // We catch invalid policies in the blanket impl for FromPyObject, which only
+    // We catch invalid Impls in the blanket impl for FromPyObject, which only
     // complains when .extract() is actually used.
     type Impl;
 }
@@ -314,7 +314,7 @@ where
 {
     #[inline]
     fn extract(ob: &'a PyAny) -> PyResult<T> {
-        <T as FromPyObjectImpl>::Impl::extract(ob, ob.py())
+        <T as FromPyObjectImpl>::Impl::extract(ob)
     }
 }
 
