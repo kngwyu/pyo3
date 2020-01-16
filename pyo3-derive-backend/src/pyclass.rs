@@ -395,6 +395,18 @@ fn impl_class(
             #weakref
         }
 
+        impl pyo3::FromPyObjectImpl for #cls {
+            type Impl = pyo3::extract_impl::Cloned;
+        }
+
+        impl pyo3::FromPyObjectImpl for &'_ #cls {
+            type Impl = pyo3::extract_impl::Reference;
+        }
+
+        impl pyo3::FromPyObjectImpl for &'_ mut #cls {
+            type Impl = pyo3::extract_impl::MutReference;
+        }
+
         #into_pyobject
 
         #inventory_impl
