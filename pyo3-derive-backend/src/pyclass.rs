@@ -404,7 +404,7 @@ fn impl_class(
         }
 
         impl pyo3::FromPyObjectImpl for &'_ mut #cls {
-            type Impl = pyo3::extract_impl::MutReference;
+            type Impl = pyo3::extract_impl::Reference;
         }
 
         #into_pyobject

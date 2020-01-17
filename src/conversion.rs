@@ -253,7 +253,6 @@ pub mod extract_impl {
 
     pub struct Cloned;
     pub struct Reference;
-    pub struct MutReference;
 
     impl<'a, T: 'a> ExtractImpl<'a, T> for Cloned
     where
@@ -274,7 +273,7 @@ pub mod extract_impl {
         }
     }
 
-    impl<'a, T> ExtractImpl<'a, &'a mut T> for MutReference
+    impl<'a, T> ExtractImpl<'a, &'a mut T> for Reference
     where
         T: PyTryFrom<'a>,
     {
