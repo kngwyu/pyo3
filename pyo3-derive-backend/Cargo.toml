@@ -11,6 +11,10 @@ license = "Apache-2.0"
 edition = "2018"
 
 [dependencies]
-quote = "1"
-proc-macro2 = "1"
-syn = { version = "1", features = ["full", "extra-traits"] }
+quote = { version = "1", default-features = false }
+proc-macro2 = { version = "1", default-features = false }
+
+[dependencies.syn]
+version = "1"
+default-features = false
+features = ["derive", "parsing", "printing", "clone-impls", "full", "extra-traits"]
