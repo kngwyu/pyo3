@@ -20,3 +20,24 @@ pub use pyfunction::{build_py_function, PyFunctionAttr};
 pub use pyimpl::{build_py_methods, impl_methods};
 pub use pyproto::build_py_proto;
 pub use utils::get_doc;
+
+#[cfg(test)]
+mod test {
+    use quote::quote;
+    #[test]
+    fn use_proc_macro2() {
+        use proc_macro2::{Ident, Span};
+        let call_ident = Ident::new("calligraphy", Span::call_site());
+        println!("{}", call_ident);
+    }
+    #[test]
+    fn use_quote1() {
+        let invalid = quote! { test="1", test2 };
+        println!("{}", invalid);
+    }
+    #[test]
+    fn use_quote2() {
+        let invalid = quote! { fn f() {} };
+        println!("{}", invalid);
+    }
+}

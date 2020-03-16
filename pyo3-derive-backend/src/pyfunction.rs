@@ -217,6 +217,17 @@ mod test {
     }
 
     #[test]
+    fn invalid_quote() {
+        let invalid = quote! { test="1", test2 };
+        println!("{}", invalid);
+    }
+
+    #[test]
+    fn test_err() {
+        assert!(items(quote! {test="1", test2}).is_err());
+    }
+
+    #[test]
     fn test_errs() {
         assert!(items(quote! {test="1", test2}).is_err());
         assert!(items(quote! {test, "*", args="*"}).is_err());
