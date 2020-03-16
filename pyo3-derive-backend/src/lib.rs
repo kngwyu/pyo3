@@ -25,6 +25,10 @@ pub use utils::get_doc;
 mod test {
     use quote::quote;
     #[test]
+    fn nothing() {
+        println!("{}", 1 + 1);
+    }
+    #[test]
     fn use_proc_macro2() {
         use proc_macro2::{Ident, Span};
         let call_ident = Ident::new("calligraphy", Span::call_site());
