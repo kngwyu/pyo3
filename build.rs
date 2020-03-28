@@ -33,6 +33,7 @@ struct InterpreterConfig {
     base_prefix: String,
     executable: String,
     machine: String,
+    calcsize_pointer: Option<i32>,
 }
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
@@ -181,6 +182,7 @@ fn load_cross_compile_info() -> Result<(InterpreterConfig, HashMap<String, Strin
         base_prefix: "".to_string(),
         executable: "".to_string(),
         machine: "".to_string(),
+        calcsize_pointer: None,
     };
 
     Ok((interpreter_config, fix_config_map(config_map)))
@@ -437,6 +439,7 @@ import sys
 import sysconfig
 import platform
 import json
+import struct
 
 PYPY = platform.python_implementation() == "PyPy"
 
@@ -456,6 +459,7 @@ print(json.dumps({
     "base_prefix": base_prefix,
     "shared": PYPY or bool(sysconfig.get_config_var('Py_ENABLE_SHARED')),
     "executable": sys.executable,
+    "calcsize_pointer": struct.calcsize("P"),
     "machine": platform.machine()
 }))
 "#;
@@ -475,7 +479,10 @@ fn configure(interpreter_config: &InterpreterConfig) -> Result<String> {
         }
     }
 
-    check_target_architecture(&interpreter_config.machine)?;
+    check_target_architecture(
+        &interpreter_config.machine,
+        &interpreter_config.calcsize_pointer,
+    )?;
 
     let is_extension_module = env::var_os("CARGO_FEATURE_EXTENSION_MODULE").is_some();
     if !is_extension_module || cfg!(target_os = "windows") {
@@ -517,7 +524,7 @@ fn configure(interpreter_config: &InterpreterConfig) -> Result<String> {
     Ok(flags)
 }
 
-fn check_target_architecture(python_machine: &str) -> Result<()> {
+fn check_target_architecture(python_machine: &str, calcsize: &Option<i32>) -> Result<()> {
     // Try to check whether the target architecture matches the python library
     let target_arch = match env::var("CARGO_CFG_TARGET_ARCH")
         .as_ref()
@@ -534,6 +541,12 @@ fn check_target_architecture(python_machine: &str) -> Result<()> {
         _ => None, // It might be possible to recognise other architectures, this will do for now.
     };
 
+    bail!(
+        "ta: {:?}, machine: {}, calcsize: {:?}",
+        target_arch,
+        python_machine,
+        calcsize
+    );
     match (target_arch, python_arch) {
         // If we could recognise both, and they're different, fail.
         (Some(t), Some(p)) if p != t => bail!(
